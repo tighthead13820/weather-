@@ -1,0 +1,83 @@
+import requests
+import tkinter as tk
+from tkinter import messagebox
+
+API_KEY = "6231526829a4ec37b9c1d3e72487dc2b"  
+
+CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather"
+FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
+
+def get_weather():
+    city = city_entry.get().strip()
+    if not city:
+        messagebox.showwarning("Input Error", "Please enter a city name.")
+        return
+
+    try:
+        # ----- Current Weather -----
+        current_url = f"{CURRENT_URL}?q={city}&appid={API_KEY}&units=metric"
+        current_res = requests.get(current_url)
+
+        if current_res.status_code != 200:
+            result_label.config(text="City not found or API error.")
+            return
+
+        current_data = current_res.json()
+        temp = current_data["main"]["temp"]
+        desc = current_data["weather"][0]["description"].title()
+        humidity = current_data["main"]["humidity"]
+
+        result_text = f"🌍 {city.title()}\n🌡 Temp: {temp}°C\n☁️ Condition: {desc}\n💧 Humidity: {humidity}%\n\n"
+
+        # ----- 5-Day Forecast -----
+        forecast_url = f"{FORECAST_URL}?q={city}&appid={API_KEY}&units=metric"
+        forecast_res = requests.get(forecast_url)
+        forecast_data = forecast_res.json()
+
+        forecasts = forecast_data["list"]
+        days = {}
+        rain_expected = False
+
+        for entry in forecasts:
+            dt_txt = entry["dt_txt"]  # e.g., '2025-07-09 12:00:00'
+            if "12:00:00" in dt_txt:  # Midday forecast
+                date = dt_txt.split(" ")[0]
+                temp = entry["main"]["temp"]
+                desc = entry["weather"][0]["description"].title()
+                rain = "rain" in desc.lower()
+
+                if rain:
+                    rain_expected = True
+
+                days[date] = f"{date}: {temp}°C, {desc}"
+
+        result_text += "📅 5-Day Forecast (12 PM):\n"
+        for forecast in days.values():
+            result_text += f"• {forecast}\n"
+
+        if rain_expected:
+            result_text += "\n☔ Rain expected in the next 5 days!"
+        else:
+            result_text += "\n🌤 No rain expected in the next 5 days."
+
+        result_label.config(text=result_text)
+
+    except Exception as e:
+        result_label.config(text=f"Error: {e}")
+
+# ----- GUI Setup -----
+root = tk.Tk()
+root.title("5-Day Weather App")
+root.geometry("400x400")
+
+tk.Label(root, text="Enter City:", font=("Arial", 12)).pack(pady=10)
+city_entry = tk.Entry(root, font=("Arial", 12))
+city_entry.pack()
+
+tk.Button(root, text="Get Weather", font=("Arial", 12), command=get_weather).pack(pady=10)
+
+result_label = tk.Label(root, text="", font=("Arial", 11), justify="left", wraplength=380)
+result_label.pack(pady=10)
+
+root.mainloop()
+
